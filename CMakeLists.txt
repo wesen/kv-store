@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.23)
 project(hello)
 
-set(SOURCE_FILES hello.c)
 
 find_package(PkgConfig)
 pkg_check_modules(PC_ZeroMQ QUIET zmq)
@@ -16,7 +15,10 @@ find_library(ZeroMQ_LIBRARY
         PATHS ${PC_ZeroMQ_LIBRARY_DIRS}
         )
 
-add_executable(hello ${SOURCE_FILES})
+add_executable(server server.c)
+add_executable(client client.c)
 
-target_include_directories(hello PUBLIC ${ZeroMQ_INCLUDE_DIR})
-target_link_libraries(hello PUBLIC ${ZeroMQ_LIBRARY})
+target_include_directories(server PUBLIC ${ZeroMQ_INCLUDE_DIR})
+target_link_libraries(server PUBLIC ${ZeroMQ_LIBRARY})
+target_include_directories(client PUBLIC ${ZeroMQ_INCLUDE_DIR})
+target_link_libraries(client PUBLIC ${ZeroMQ_LIBRARY})
