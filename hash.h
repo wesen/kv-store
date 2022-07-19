@@ -40,14 +40,15 @@ hash_entry_t *hash_table_get(hash_table_t *table,
 int hash_table_delete(hash_table_t *table, const char *key);
 hash_entry_t *hash_table_set_new(hash_table_t *table, const char *key, const char *value,
                        uint16_t value_len);
-int hash_table_set(hash_table_t *table, hash_entry_t *entry);
-
 
 typedef enum hash_table_entry_result_e {
    ENTRY_ERROR = 0,
    ENTRY_REPLACED = 1,
    ENTRY_INSERTED = 2,
+   ENTRY_NOP = 3
 } hash_table_entry_result_t;
+
+hash_table_entry_result_t hash_table_set(hash_table_t *table, hash_entry_t *entry);
 hash_table_entry_result_t hash_table_set_entry(hash_entry_t *entries[], uint64_t capacity, hash_entry_t *entry);
 
 #endif // HASH_H_

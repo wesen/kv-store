@@ -7,6 +7,7 @@
 #include <assert.h>
 
 #undef DEBUG
+#define DEBUG 0
 #include "./helpers.h"
 #include "./fnv.h"
 #include "./hash.h"
@@ -173,20 +174,28 @@ int hash_table_delete(hash_table_t *table, const char *key) {
 }
 
 hash_entry_t *hash_table_set_new(hash_table_t *table,
-                             const char *key,
-                             const char *value, uint16_t len) {
+                                 const char *key,
+                                 const char *value, uint16_t len) {
     hash_entry_t *entry = hash_entry_new_with_value(key, value, len);
-    if (hash_table_set(table, entry)) {
-        return entry;
-    } else {
-        hash_entry_free(&entry);
+    if (entry == NULL) {
         return NULL;
     }
+    switch (hash_table_set(table, entry)) {
+        case ENTRY_NOP:
+        case ENTRY_ERROR:
+            hash_entry_free(&entry);
+            return NULL;
+        case ENTRY_REPLACED:
+        case ENTRY_INSERTED:
+            return entry;
+    }
+
+    assert(0); // unreachable
 }
 
-int hash_table_set(hash_table_t *table, hash_entry_t *entry) {
+hash_table_entry_result_t hash_table_set(hash_table_t *table, hash_entry_t *entry) {
     if (table == NULL || entry == NULL) {
-        return 0;
+        return ENTRY_NOP;
     }
 
     if (table->current_size > (RESIZE_CAPACITY_THRESHOLD(table->total_capacity))) {
@@ -195,7 +204,7 @@ int hash_table_set(hash_table_t *table, hash_entry_t *entry) {
 
         hash_entry_t **new_entries = malloc(new_capacity * sizeof(hash_entry_t*));
         if (new_entries == NULL) {
-            return 0;
+            return ENTRY_ERROR;
         }
         memset(new_entries, 0, sizeof(hash_entry_t*) * new_capacity);
         for (uint64_t i = 0; i < table->total_capacity; i++) {
@@ -203,7 +212,7 @@ int hash_table_set(hash_table_t *table, hash_entry_t *entry) {
                 hash_table_entry_result_t ret = hash_table_set_entry(new_entries, new_capacity, table->entries[i]);
                 if (ret != ENTRY_INSERTED) {
                     assert("Could not insert entry into bigger array");
-                    return 0;
+                    return ENTRY_ERROR;
                 }
             }
         }
@@ -217,20 +226,12 @@ int hash_table_set(hash_table_t *table, hash_entry_t *entry) {
             table->entries,
             table->total_capacity,
             entry);
+    if (ret == ENTRY_INSERTED) {
+        table->current_size++;
+    }
     DEBUG_PRINT("ret: %d, entries: %p, capacity: %lld, size: %lld\n",
                 ret, table->entries, table->total_capacity, table->current_size);
-    switch (ret) {
-        case ENTRY_INSERTED:
-            table->current_size++;
-            return 1;
-        case ENTRY_REPLACED:
-            return 1;
-        case ENTRY_ERROR:
-        default:
-            return 0;
-    }
-
-    return 0;
+    return ret;
 }
 
 hash_table_entry_result_t hash_table_set_entry(

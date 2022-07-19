@@ -188,22 +188,33 @@ int main(int argc, char *argv[])
 
             for (int i = 0; 1; i++) {
                 int idx = xorshf96() % TEST_STRING_COUNT;
+                const uint64_t key_hash = fnv_hash(&keys[idx * MAX_KEY_LENGTH]);
+                const char *key = &keys[idx * MAX_KEY_LENGTH];
+                const char *value = &values[idx * MAX_VALUE_LENGTH];
+                const uint64_t len = value_lengths[idx];
+
+                const int force_print = key_hash == 0x33a3c82029918d16;
+                if (force_print) {
+                    printf("%d: idx %d, key_hash %llx, set %d\n",
+                           i, idx, key_hash, key_set[idx]);
+                    printf("table size: %lld capacity: %lld\n", table->current_size, table->total_capacity);
+                }
+
                 random_action_t action = random_action_distribution_get_random_action(&distribution);
                 TRACE_PRINT("Round %d idx %d action %d\n", i, idx, action);
                 switch (action) {
                     case ACTION_SET:
                     {
-                        printf("%d: set %d keylen %ld size: %lld\n", i, idx,
-                               strlen(&keys[idx * MAX_KEY_LENGTH]),
-                               table->current_size);
-                        hash_entry_t *entry = hash_table_set_new(
-                            table, &keys[idx * MAX_KEY_LENGTH],
-                            &values[idx * MAX_VALUE_LENGTH], value_lengths[idx]);
+                        if (force_print) {
+                            printf("%d: set %d keylen %ld size: %lld\n", i, idx,
+                                   strlen(key), table->current_size);
+                        }
+                        hash_entry_t *entry = hash_table_set_new(table, key, value, len);
+                        // memory leak if key already exists
                         assert(entry != NULL);
                         key_set[idx] = 1;
                         /* hexdump(entry->key, strlen(entry->key)); */
-                        hash_entry_t *e2 =
-                            hash_table_get(table, &keys[idx * MAX_KEY_LENGTH]);
+                        hash_entry_t *e2 = hash_table_get(table, key);
                         DEBUG_PRINT("entry: %p keylen %ld, hash, %llx, e2 %p\n",
                                     entry, strlen(entry->key), entry->key_hash,
                                     e2);
@@ -213,11 +224,13 @@ int main(int argc, char *argv[])
 
                     case ACTION_GET:
                     {
-                        const uint64_t key_hash = fnv_hash(&keys[idx * MAX_KEY_LENGTH]);
-                        hash_entry_t *entry = hash_table_get(table, &keys[idx * MAX_KEY_LENGTH]);
-                        printf("%d: get %d hash %llx, set %d, found %p\n",
-                               i, idx, key_hash, key_set[idx], entry);
+                        hash_entry_t *entry = hash_table_get(table, key);
+                        if (force_print) {
+                            printf("%d: get %d hash %llx, set %d, found %p\n",
+                                   i, idx, key_hash, key_set[idx], entry);
+                        }
                         if (key_set[idx]) {
+                            assert(entry != NULL);
                             assert(entry->key_hash == key_hash);
                             DEBUG_PRINT("entry: %p keylen %ld, hash, %llx, set %d\n",
                                         entry, strlen(entry->key), entry->key_hash,
@@ -231,13 +244,31 @@ int main(int argc, char *argv[])
 
                     case ACTION_DELETE:
                     {
-                        printf("%d: delete %d idx size %lld\n", i, idx, table->current_size);
+                        if (force_print) {
+                            printf("%d: delete %d idx size %lld key_hash %llx\n",
+                                   i, idx, table->current_size, key_hash);
+                        }
+                        int set = key_set[idx];
+                        int prev_size = table->current_size;
+                        int ret = hash_table_delete(table, key);
+                        if (set) {
+                            assert(ret == 1);
+                            assert(prev_size == table->current_size + 1);
+                            hash_entry_t *e2 = hash_table_get(table, key);
+                            assert(e2 == NULL);
+                            key_set[idx] = 0;
+                            int ret = hash_table_delete(table, key);
+                            assert(ret == 0);
+                        } else {
+                            assert(ret == 0);
+                            assert(prev_size == table->current_size);
+                        }
                     }
                     break;
 
                     case ACTION_CLEAR:
                     {
-                        printf("%d: clear\n", i);
+                        /* printf("%d: clear\n", i); */
                     }
                     break;
 
