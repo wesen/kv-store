@@ -32,12 +32,12 @@ typedef struct hash_table_s {
 } hash_table_t;
 
 hash_table_t *hash_table_new(void);
-void hash_table_clear(hash_table_t *table);
+int hash_table_clear(hash_table_t *table);
 void hash_table_free(hash_table_t **table);
 
 hash_entry_t *hash_table_get(hash_table_t *table,
                        const char *key);
-hash_entry_t *hash_table_delete(hash_table_t *table, const char *key);
+int hash_table_delete(hash_table_t *table, const char *key);
 hash_entry_t *hash_table_set_new(hash_table_t *table, const char *key, const char *value,
                        uint16_t value_len);
 int hash_table_set(hash_table_t *table, hash_entry_t *entry);

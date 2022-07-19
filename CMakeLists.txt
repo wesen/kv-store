@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.22)
 project(hello)
 
+set(CMAKE_CXX_FLAGS "-O1 -Wall -Wextra -g")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -Wall -Wextra -g")
+set(CMAKE_C_FLAGS "-O1 -Wall -Wextra -g")
+set(CMAKE_C_FLAGS_DEBUG "-g -Wall -Wextra -g")
+
 
 find_package(PkgConfig)
 pkg_check_modules(PC_ZeroMQ QUIET zmq)
