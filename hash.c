@@ -6,6 +6,8 @@
 
 #include <assert.h>
 
+#undef DEBUG
+#include "./helpers.h"
 #include "./fnv.h"
 #include "./hash.h"
 
@@ -129,15 +131,18 @@ hash_entry_t *hash_table_get(hash_table_t *table, const char *key) {
     return NULL;
   }
   const uint64_t h = fnv_hash(key);
+  DEBUG_PRINT("get key %llx, total_capacity %lld\n", h, table->total_capacity);
 
   for (uint64_t i = 0; i < table->total_capacity; i++) {
       const uint64_t idx = (i + h) % table->total_capacity;
+      DEBUG_PRINT("test at idx %lld %p\n", idx, table->entries[idx]);
       // found at least one empty entry, so that means the key is just not here
-      if (table->entries[i] == NULL) {
+      if (table->entries[idx] == NULL) {
           return NULL;
       }
-      if (table->entries[i]->key_hash == h) {
-          return table->entries[i];
+      DEBUG_PRINT("hash at idx %lld: %llx, looking for %llx\n", idx, table->entries[idx]->key_hash, h);
+      if (table->entries[idx]->key_hash == h) {
+          return table->entries[idx];
       }
   }
 
@@ -153,11 +158,11 @@ int hash_table_delete(hash_table_t *table, const char *key) {
     for (uint64_t i = 0; i < table->total_capacity; i++) {
         const uint64_t idx = (i + h) % table->total_capacity;
         // found at least one empty entry, so that means the key is just not here
-        if (table->entries[i] == 0) {
+        if (table->entries[idx] == 0) {
             return 0;
         }
-        if (table->entries[i]->key_hash == h) {
-            hash_entry_free(&table->entries[i]);
+        if (table->entries[idx]->key_hash == h) {
+            hash_entry_free(&table->entries[idx]);
             table->current_size--;
             assert(table->current_size >= 0);
             return 1;
@@ -185,8 +190,9 @@ int hash_table_set(hash_table_t *table, hash_entry_t *entry) {
     }
 
     if (table->current_size > (RESIZE_CAPACITY_THRESHOLD(table->total_capacity))) {
-        // resize
         const uint64_t new_capacity = table->total_capacity * 2;
+        DEBUG_PRINT("resize from %lld to %lld\n", table->current_size, new_capacity);
+
         hash_entry_t **new_entries = malloc(new_capacity * sizeof(hash_entry_t*));
         if (new_entries == NULL) {
             return 0;
@@ -206,8 +212,13 @@ int hash_table_set(hash_table_t *table, hash_entry_t *entry) {
         table->total_capacity = new_capacity;
     }
 
-    hash_table_entry_result_t ret = hash_table_set_entry(table->entries, table->total_capacity, entry);
-    // printf("ret: %d, entries: %p, capacity: %d, size: %d\n", ret, table->entries, table->total_capacity, table->current_size);
+    hash_table_entry_result_t ret =
+        hash_table_set_entry(
+            table->entries,
+            table->total_capacity,
+            entry);
+    DEBUG_PRINT("ret: %d, entries: %p, capacity: %lld, size: %lld\n",
+                ret, table->entries, table->total_capacity, table->current_size);
     switch (ret) {
         case ENTRY_INSERTED:
             table->current_size++;
@@ -230,11 +241,13 @@ hash_table_entry_result_t hash_table_set_entry(
         // found at least one empty entry, so that means the key is just not
         // here
         if (entries[idx] == NULL) {
+            DEBUG_PRINT("insert %llx into idx %lld\n", entry->key_hash, idx);
             entries[idx] = entry;
             return ENTRY_INSERTED;
         }
         if (entries[idx]->key_hash == entry->key_hash) {
             // key already exists!
+            DEBUG_PRINT("replace %llx into idx %lld\n", entry->key_hash, idx);
             hash_entry_free(&entries[idx]);
             entries[idx] = entry;
             return ENTRY_REPLACED;

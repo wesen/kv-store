@@ -7,7 +7,10 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "hash.h"
+#undef DEBUG
+#include "./helpers.h"
+#include "./hash.h"
+#include "./fnv.h"
 
 #define INPUTSIZE 1024
 
@@ -67,11 +70,11 @@ typedef enum random_action_e {
 
 typedef struct random_action_distribution_entry_s {
     random_action_t action;
-    uint16_t weight;
+    int weight;
 } random_action_distribution_entry_t;
 
 typedef struct random_action_distribution_s {
-    uint16_t total_weight;
+    int total_weight;
     random_action_distribution_entry_t *entries;
 } random_action_distribution_t;
 
@@ -83,9 +86,10 @@ void random_action_distribution_init(random_action_distribution_t *distribution)
 }
 
 random_action_t random_action_distribution_get_random_action(random_action_distribution_t *distribution) {
-    int n  = xorshf96() % distribution->total_weight + 1;
+    int n  = xorshf96() % distribution->total_weight;
     int acc = 0;
     for (int i = 0; distribution->entries[i].weight > 0 && acc <= distribution->total_weight; i++) {
+        TRACE_PRINT("round %d, acc %d, n %d\n", i, acc, n);
         acc += distribution->entries[i].weight;
         if (acc > n) {
             return distribution->entries[i].action;
@@ -111,7 +115,6 @@ static void hexdump(char *data, unsigned long len) {
 
 int main(int argc, char *argv[])
 {
-    printf("foobar\n");
     char line[INPUTSIZE + 1] = {0};
 	char key[INPUTSIZE + 1] = {0};
 	char value[INPUTSIZE + 1] = {0};
@@ -125,16 +128,16 @@ int main(int argc, char *argv[])
             srand(0);
 
             random_action_distribution_entry_t entries[] = {
-                {
-                    .action = ACTION_SET,
-                    .weight = 50,
-                },
-                {.action = ACTION_GET, .weight = 50},
-                {.action = ACTION_DELETE, .weight = 10},
-                {.action = ACTION_CLEAR, .weight = 1},
-                {.action = ACTION_ERROR, .weight = 0}
+            {
+            .action = ACTION_SET,
+            .weight = 50,
+        },
+            {.action = ACTION_GET, .weight = 5000},
+            {.action = ACTION_DELETE, .weight = 1000},
+            {.action = ACTION_CLEAR, .weight = 1},
+            {.action = ACTION_ERROR, .weight = 0}
 
-            };
+        };
 
             random_action_distribution_t distribution =
                 {
@@ -163,7 +166,7 @@ int main(int argc, char *argv[])
                 int klen = xorshf96() % (MAX_KEY_LENGTH - 1 - sizeof(i)) + sizeof(i) + 1;
                 int vlen = xorshf96() % (MAX_VALUE_LENGTH - 1);
                 value_lengths[i] = vlen;
-                /* printf("%d: klen: %d\n", i, klen); */
+                /* DEBUG_PRINT("%d: klen: %d\n", i, klen); */
                 assert(klen >= sizeof(i) + 1);
 
                 for (int c = 0; c < klen; c++) {
@@ -176,48 +179,65 @@ int main(int argc, char *argv[])
                 /* hexdump(&keys[i * MAX_KEY_LENGTH], klen); */
                 assert(strlen(&keys[i * MAX_KEY_LENGTH]) > 0);
 
-                for (int c = 0; i < vlen; i++) {
+                for (int c = 0; c < vlen; c++) {
                     values[i * MAX_VALUE_LENGTH + c] = xorshf96() % 255;
                 }
             }
 
             printf("initialized\n");
 
-            for (int i = 0; i < 1000; i++) {
+            for (int i = 0; 1; i++) {
                 int idx = xorshf96() % TEST_STRING_COUNT;
-                switch (random_action_distribution_get_random_action(&distribution)) {
+                random_action_t action = random_action_distribution_get_random_action(&distribution);
+                TRACE_PRINT("Round %d idx %d action %d\n", i, idx, action);
+                switch (action) {
                     case ACTION_SET:
                     {
-                        printf("%d set %d keylen %ld\n", i, idx, strlen(&keys[idx * MAX_KEY_LENGTH]));
-                        hash_entry_t *entry =
-                            hash_table_set_new(table,
-                                               &keys[idx * MAX_KEY_LENGTH],
-                                               &values[idx * MAX_VALUE_LENGTH], value_lengths[idx]);
+                        printf("%d: set %d keylen %ld size: %lld\n", i, idx,
+                               strlen(&keys[idx * MAX_KEY_LENGTH]),
+                               table->current_size);
+                        hash_entry_t *entry = hash_table_set_new(
+                            table, &keys[idx * MAX_KEY_LENGTH],
+                            &values[idx * MAX_VALUE_LENGTH], value_lengths[idx]);
                         assert(entry != NULL);
                         key_set[idx] = 1;
-                        hexdump(entry->key, strlen(entry->key));
-                        hash_entry_t *e2 = hash_table_get(table, &keys[idx * MAX_KEY_LENGTH]);
-                        printf("entry: %p keylen %ld, hash, %llx, e2 %p\n", entry, strlen(entry->key), entry->key_hash, e2);
+                        /* hexdump(entry->key, strlen(entry->key)); */
+                        hash_entry_t *e2 =
+                            hash_table_get(table, &keys[idx * MAX_KEY_LENGTH]);
+                        DEBUG_PRINT("entry: %p keylen %ld, hash, %llx, e2 %p\n",
+                                    entry, strlen(entry->key), entry->key_hash,
+                                    e2);
                         assert(entry == e2);
                     }
                     break;
 
                     case ACTION_GET:
                     {
-                        printf("get %d idx\n", idx);
+                        const uint64_t key_hash = fnv_hash(&keys[idx * MAX_KEY_LENGTH]);
+                        hash_entry_t *entry = hash_table_get(table, &keys[idx * MAX_KEY_LENGTH]);
+                        printf("%d: get %d hash %llx, set %d, found %p\n",
+                               i, idx, key_hash, key_set[idx], entry);
+                        if (key_set[idx]) {
+                            assert(entry->key_hash == key_hash);
+                            DEBUG_PRINT("entry: %p keylen %ld, hash, %llx, set %d\n",
+                                        entry, strlen(entry->key), entry->key_hash,
+                                        key_set[idx]);
 
+                        } else {
+                            assert(entry == NULL);
+                        }
                     }
                     break;
 
                     case ACTION_DELETE:
                     {
-                        printf("delete %d idx\n", idx);
+                        printf("%d: delete %d idx size %lld\n", i, idx, table->current_size);
                     }
                     break;
 
                     case ACTION_CLEAR:
                     {
-                        printf("clear\n");
+                        printf("%d: clear\n", i);
                     }
                     break;
 
