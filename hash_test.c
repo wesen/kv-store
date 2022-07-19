@@ -324,7 +324,6 @@ int main(int argc, char *argv[])
                     int ret = hash_table_delete(table, key);
                     printf("deleted %s, current_size %lld, ret: %d\n", key, table->current_size, ret);
                 }
-
             } else {
                 printf("unknown command %c\n", line[0]);
             }

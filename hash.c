@@ -112,8 +112,10 @@ int hash_table_clear(hash_table_t *table) {
         if (table->entries != NULL) {
             for (uint64_t i = 0; i < table->total_capacity; i++) {
                 if (table->entries[i] != NULL) {
+                    if (table->entries[i]->deleted == 0) {
+                        table->current_size--;
+                    }
                     hash_entry_free(&table->entries[i]);
-                    table->current_size--;
                     assert(table->current_size >= 0);
                 }
             }
