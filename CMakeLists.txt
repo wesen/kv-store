@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.23)
+cmake_minimum_required(VERSION 3.22)
 project(hello)
 
 
@@ -17,8 +17,17 @@ find_library(ZeroMQ_LIBRARY
 
 add_executable(server server.c)
 add_executable(client client.c)
-
 target_include_directories(server PUBLIC ${ZeroMQ_INCLUDE_DIR})
 target_link_libraries(server PUBLIC ${ZeroMQ_LIBRARY})
 target_include_directories(client PUBLIC ${ZeroMQ_INCLUDE_DIR})
 target_link_libraries(client PUBLIC ${ZeroMQ_LIBRARY})
+
+set(PREFIX "weather-")
+add_executable("${PREFIX}server" "${PREFIX}server.c")
+add_executable("${PREFIX}client" "${PREFIX}client.c")
+target_include_directories("${PREFIX}server" PUBLIC ${ZeroMQ_INCLUDE_DIR})
+target_link_libraries     ("${PREFIX}server" PUBLIC ${ZeroMQ_LIBRARY})
+target_include_directories("${PREFIX}client" PUBLIC ${ZeroMQ_INCLUDE_DIR})
+target_link_libraries     ("${PREFIX}client" PUBLIC ${ZeroMQ_LIBRARY})
+
+add_executable(hash hash.c hash_test.c)
