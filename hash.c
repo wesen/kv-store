@@ -61,6 +61,7 @@ hash_table_t *hash_table_new(void) {
     if (entries == NULL) {
         return NULL;
     }
+    memset(entries, 0, sizeof(hash_entry_t*) * INITIAL_CAPACITY);
     hash_table_t *ret = malloc(sizeof(hash_table_t));
     if (ret != NULL) {
         ret->total_capacity = INITIAL_CAPACITY;
@@ -119,19 +120,17 @@ hash_entry_t *hash_table_set_new(hash_table_t *table,
 
 int hash_table_set(hash_table_t *table, hash_entry_t *entry) {
     if (table == NULL || entry == NULL) {
-        printf("NULL\n");
         return 0;
     }
 
     if (table->current_size > (table->total_capacity / 2)) {
-        printf("resize\n");
         // resize
         const uint64_t new_capacity = table->total_capacity * 2;
         hash_entry_t **new_entries = malloc(new_capacity * sizeof(hash_entry_t*));
         if (new_entries == NULL) {
-        printf("no new entries\n");
             return 0;
         }
+        memset(new_entries, 0, sizeof(hash_entry_t*) * new_capacity);
         for (uint64_t i = 0; i < table->total_capacity; i++) {
             if (table->entries[i] != NULL) {
                 hash_table_entry_result_t ret = hash_table_set_entry(new_entries, new_capacity, table->entries[i]);
@@ -144,11 +143,10 @@ int hash_table_set(hash_table_t *table, hash_entry_t *entry) {
         free(table->entries);
         table->entries = new_entries;
         table->total_capacity = new_capacity;
-        printf("resized\n");
     }
 
     hash_table_entry_result_t ret = hash_table_set_entry(table->entries, table->total_capacity, entry);
-    printf("ret: %d, entries: %p, capacity: %d, size: %d\n", ret, table->entries, table->total_capacity, table->current_size);
+    // printf("ret: %d, entries: %p, capacity: %d, size: %d\n", ret, table->entries, table->total_capacity, table->current_size);
     switch (ret) {
         case ENTRY_INSERTED:
             table->current_size++;
@@ -170,15 +168,14 @@ hash_table_entry_result_t hash_table_set_entry(
         const uint64_t idx = (i + entry->key_hash) % total_capacity;
         // found at least one empty entry, so that means the key is just not
         // here
-        if (entries[i] == NULL) {
-            entries[i] = entry;
+        if (entries[idx] == NULL) {
+            entries[idx] = entry;
             return ENTRY_INSERTED;
         }
-        if (entries[i]->key_hash == entry->key_hash) {
+        if (entries[idx]->key_hash == entry->key_hash) {
             // key already exists!
-            printf("%s=%s already exists!\n", entries[i]->key, entry->key);
-            hash_entry_free(&entries[i]);
-            entries[i] = entry;
+            hash_entry_free(&entries[idx]);
+            entries[idx] = entry;
             return ENTRY_REPLACED;
         }
     }
