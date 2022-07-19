@@ -3,7 +3,7 @@ project(hello)
 
 set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -g")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -Wall -Wextra -g")
-set(CMAKE_C_FLAGS "-O0 -Wall -Wextra -g -DDEBUG=1")
+set(CMAKE_C_FLAGS "-O3 -Wall -Wextra -g -DDEBUG=1")
 set(CMAKE_C_FLAGS_DEBUG "-g -Wall -Wextra -DDEBUG=1g")
 
 

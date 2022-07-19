@@ -1,20 +1,20 @@
 #ifndef HELPERS_H_
 #define HELPERS_H_
 
-#ifndef TRACE
-#define TRACE 0
+#ifndef TRACE_LEVEL
+#define TRACE_LEVEL 0
 #endif
 
-#ifndef DEBUG
-#define DEBUG 0
+#ifndef DEBUG_LEVEL
+#define DEBUG_LEVEL 0
 #endif
 
 #define DEBUG_PRINT(fmt, ...) \
-        do { if (DEBUG) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
+        do { if (DEBUG_LEVEL) fprintf(stdout, "%s:%d:%s(): " fmt, __FILE__, \
                                 __LINE__, __func__, __VA_ARGS__); } while (0)
 
 #define TRACE_PRINT(fmt, ...) \
-        do { if (TRACE) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
+        do { if (TRACE_LEVEL) fprintf(stdout, "%s:%d:%s(): " fmt, __FILE__, \
                                 __LINE__, __func__, __VA_ARGS__); } while (0)
 
 

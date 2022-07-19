@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#undef DEBUG
+#undef DEBUG_LEVEL
 #include "./helpers.h"
 #include "./hash.h"
 #include "./fnv.h"
@@ -17,7 +17,7 @@
 #define STR_IMPL_(x) #x      //stringify argument
 #define STR(x) STR_IMPL_(x)  //indirection to expand argument macros
 
-#define TEST_STRING_COUNT  1000000
+#define TEST_STRING_COUNT  100000
 #define MAX_KEY_LENGTH  512
 #define MAX_VALUE_LENGTH  512
 
@@ -25,7 +25,7 @@
 //
 // x implement delete
 // x implement clear
-// - implement random tester
+// x implement random tester
 // - implement snapshot loading/saving
 //
 // - implement on disk log
@@ -128,12 +128,9 @@ int main(int argc, char *argv[])
             srand(0);
 
             random_action_distribution_entry_t entries[] = {
-            {
-            .action = ACTION_SET,
-            .weight = 50,
-        },
+            {.action = ACTION_SET, .weight = 500,},
             {.action = ACTION_GET, .weight = 5000},
-            {.action = ACTION_DELETE, .weight = 1000},
+            {.action = ACTION_DELETE, .weight = 100},
             {.action = ACTION_CLEAR, .weight = 1},
             {.action = ACTION_ERROR, .weight = 0}
 
@@ -187,34 +184,41 @@ int main(int argc, char *argv[])
             printf("initialized\n");
 
             for (int i = 0; 1; i++) {
-                int idx = xorshf96() % TEST_STRING_COUNT;
+                unsigned long idx = xorshf96() % TEST_STRING_COUNT;
                 const uint64_t key_hash = fnv_hash(&keys[idx * MAX_KEY_LENGTH]);
-                const char *key = &keys[idx * MAX_KEY_LENGTH];
-                const char *value = &values[idx * MAX_VALUE_LENGTH];
+                const char *key_ = &keys[idx * MAX_KEY_LENGTH];
+                const char *value_ = &values[idx * MAX_VALUE_LENGTH];
                 const uint64_t len = value_lengths[idx];
 
-                const int force_print = key_hash == 0x33a3c82029918d16;
+                const int force_print = idx == 39 || idx == 24;
                 if (force_print) {
-                    printf("%d: idx %d, key_hash %llx, set %d\n",
+                    printf("%d: idx %lld, key_hash %llx, set %d\n",
                            i, idx, key_hash, key_set[idx]);
                     printf("table size: %lld capacity: %lld\n", table->current_size, table->total_capacity);
                 }
 
                 random_action_t action = random_action_distribution_get_random_action(&distribution);
-                TRACE_PRINT("Round %d idx %d action %d\n", i, idx, action);
+                TRACE_PRINT("Round %d idx %lld action %d\n", i, idx, action);
                 switch (action) {
                     case ACTION_SET:
                     {
                         if (force_print) {
                             printf("%d: set %d keylen %ld size: %lld\n", i, idx,
-                                   strlen(key), table->current_size);
+                                   strlen(key_), table->current_size);
                         }
-                        hash_entry_t *entry = hash_table_set_new(table, key, value, len);
-                        // memory leak if key already exists
+                        const uint64_t prev_size = table->current_size;
+                        hash_entry_t *entry = hash_table_set_new(table, key_, value_, len);
                         assert(entry != NULL);
-                        key_set[idx] = 1;
-                        /* hexdump(entry->key, strlen(entry->key)); */
-                        hash_entry_t *e2 = hash_table_get(table, key);
+
+                        if (key_set[idx]) {
+                            assert(prev_size == table->current_size);
+                        } else {
+                            assert(prev_size == table->current_size - 1);
+                            key_set[idx] = 1;
+                        }
+
+                        /* hexdump(entry->key_, strlen(entry->key_)); */
+                        hash_entry_t *e2 = hash_table_get(table, key_);
                         DEBUG_PRINT("entry: %p keylen %ld, hash, %llx, e2 %p\n",
                                     entry, strlen(entry->key), entry->key_hash,
                                     e2);
@@ -224,7 +228,7 @@ int main(int argc, char *argv[])
 
                     case ACTION_GET:
                     {
-                        hash_entry_t *entry = hash_table_get(table, key);
+                        hash_entry_t *entry = hash_table_get(table, key_);
                         if (force_print) {
                             printf("%d: get %d hash %llx, set %d, found %p\n",
                                    i, idx, key_hash, key_set[idx], entry);
@@ -250,14 +254,14 @@ int main(int argc, char *argv[])
                         }
                         int set = key_set[idx];
                         int prev_size = table->current_size;
-                        int ret = hash_table_delete(table, key);
+                        int ret = hash_table_delete(table, key_);
                         if (set) {
                             assert(ret == 1);
                             assert(prev_size == table->current_size + 1);
-                            hash_entry_t *e2 = hash_table_get(table, key);
+                            hash_entry_t *e2 = hash_table_get(table, key_);
                             assert(e2 == NULL);
                             key_set[idx] = 0;
-                            int ret = hash_table_delete(table, key);
+                            int ret = hash_table_delete(table, key_);
                             assert(ret == 0);
                         } else {
                             assert(ret == 0);

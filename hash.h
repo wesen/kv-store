@@ -16,6 +16,7 @@ void buf_free(buf_t **buf);
 typedef struct hash_entry_s {
   char *key;
   uint64_t key_hash;
+  int deleted;
   buf_t value;
 } hash_entry_t;
 
@@ -49,6 +50,6 @@ typedef enum hash_table_entry_result_e {
 } hash_table_entry_result_t;
 
 hash_table_entry_result_t hash_table_set(hash_table_t *table, hash_entry_t *entry);
-hash_table_entry_result_t hash_table_set_entry(hash_entry_t *entries[], uint64_t capacity, hash_entry_t *entry);
+hash_table_entry_result_t hash_table_set_entry(hash_entry_t *entries[], uint64_t capacity, hash_entry_t *new_entry);
 
 #endif // HASH_H_
